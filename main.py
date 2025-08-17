@@ -9,7 +9,7 @@ pygame.display.set_caption("Drawing Tool")
 fps = 150
 fps_clock = pygame.time.Clock()
 width, height = 1600, 900
-screen = pygame.display.set_mode((width, height), pygame.RESIZABLE)
+screen = pygame.display.set_mode((width, height))
 font = pygame.font.SysFont('Times', 20)
 
 objects = []
@@ -84,6 +84,22 @@ def save():
     pygame.image.save(canvas, "canvas.png")
 
 
+def save_canvas_state():
+    if len(canvas_states) >= MAX_UNDO_STEPS:
+        canvas_states.pop(0)
+    canvas_states.append(canvas.copy())
+
+
+def undo_action():
+    if len(canvas_states) > 1:
+        canvas_states.pop()
+        canvas.blit(canvas_states.pop(), (0, 0))
+    else:
+        canvas.fill((255, 255, 255))
+        if canvas_states: 
+            canvas_states[0] = canvas.copy()
+
+
 button_width = 120
 button_height = 35
 panel_width = 300
@@ -109,7 +125,7 @@ title_tools = font.render("Brushes", True, (230, 230, 230))
 title_file = font.render("File", True, (230, 230, 230))
 
 title_colors_y = panel_padding
-start_y_colors = title_colors_y + title_colors.get_height() + 10
+start_y_colors = title_colors_y + title_colors.get_height() + panel_padding
 
 for index, button_name in enumerate(color_buttons):
     col = index % 2
@@ -121,7 +137,7 @@ for index, button_name in enumerate(color_buttons):
     Button(x, y, button_width, button_height,
            button_name[0], button_name[1])
 
-last_color_row = (len(color_buttons) + 2) // 2
+last_color_row = (len(color_buttons) + 1) // 2
 separator_y = start_y_colors + last_color_row * (button_height + panel_padding) + panel_padding
 
 tool_buttons = [
@@ -129,36 +145,45 @@ tool_buttons = [
     ['Brush Smaller', lambda: change_brush_size('smaller')],
 ]
 
-title_tools_y = separator_y + 5
-start_y_tools = title_tools_y + title_tools.get_height() + 10
+title_tools_y = separator_y + panel_padding
+start_y_tools = title_tools_y + title_tools.get_height() + panel_padding
 
 for index, button_name in enumerate(tool_buttons):
     col = index % 2
     row = index // 2
 
     x = panel_padding + col * (button_width + panel_padding)
-    y = start_y_tools + 20 + row * (button_height + panel_padding)
+    y = start_y_tools + row * (button_height + panel_padding)
 
     Button(x, y, button_width, button_height, button_name[0], button_name[1])
 
-last_tool_row = (len(tool_buttons) + 2) // 2
+last_tool_row = (len(tool_buttons) + 1) // 2
 separator2_y = start_y_tools + last_tool_row * (button_height + panel_padding) + panel_padding
 
 file_buttons = [
-    ['Save', save]
+    ['Save', save],
+    ['Undo', undo_action],
 ]
 
 title_file_y = separator2_y + panel_padding
 start_y_file = title_file_y + title_file.get_height() + panel_padding
 
 for index, button_name in enumerate(file_buttons):
-    x = panel_padding
-    y = start_y_file
+    col = index % 2
+    row = index // 2
+    x = panel_padding + col * (button_width + panel_padding)
+    y = start_y_file + row * (button_height + panel_padding)
 
-    Button(x, y, panel_width - 2 * panel_padding, button_height, button_name[0], button_name[1])
+    Button(x, y, button_width, button_height, button_name[0], button_name[1])
 
 canvas = pygame.Surface(canvas_size)
 canvas.fill((255, 255, 255))
+canvas_states = []
+MAX_UNDO_STEPS = 50
+
+save_canvas_state()
+
+fullscreen = False
 
 while True:
     screen.fill((30, 30, 30))
@@ -180,6 +205,13 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_f:
+                fullscreen = not fullscreen
+                if fullscreen:
+                    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+                else:
+                    screen = pygame.display.set_mode((width, height))
 
     for obj in objects:
         obj.button_rect.y = obj.y + scroll_offset
@@ -195,6 +227,8 @@ while True:
         pygame.draw.circle(canvas, draw_color, [dx, dy], brush_size)
 
         if 0 <= dx < canvas_size[0] and 0 <= dy < canvas_size[1]:
+            if not canvas_states or canvas_states[-1].get_at((int(dx), int(dy))) != canvas.get_at((int(dx), int(dy))):
+                save_canvas_state()
             pygame.draw.circle(canvas, draw_color, [int(dx), int(dy)], brush_size)
 
     pygame.draw.circle(screen, draw_color, [panel_width * 5 - 50, 100], brush_size)
