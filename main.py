@@ -18,6 +18,24 @@ brush_size = 30
 brush_size_steps = 3
 canvas_size = [800, 800]
 
+button_width = 120
+button_height = 35
+panel_width = 300
+panel_padding = 10
+panel_visible = True
+min_panel_width = 50
+panel_target_width = 300
+panel_speed = 15
+toggle_button_rect = pygame.Rect(0, 0, 20, 60)
+
+palette_width = 243
+palette_height = 256
+palette_x = panel_width - 285
+palette_y = 600
+
+show_palette = False
+palette_close_btn = None
+
 
 class Button:
     def __init__(self, x, y, width, height, button_text='Button', onclick_function=None, one_press=False):
@@ -66,6 +84,40 @@ class Button:
         screen.blit(self.button_surface, self.button_rect)
 
 
+def choose_color():
+    global show_palette
+    show_palette = not show_palette  # Переключаем видимость палитры
+
+
+def draw_color_palette():
+    global palette_close_btn, draw_color
+
+    if not show_palette:
+        return None
+
+    # Рисуем фон палитры с тенью
+    pygame.draw.rect(screen, (100, 100, 100), (palette_x - 5, palette_y - 5, palette_width + 10, palette_height + 50),
+                     border_radius=5)
+    pygame.draw.rect(screen, (40, 40, 40), (palette_x, palette_y, palette_width, palette_height + 40), border_radius=5)
+
+    # RGB-палитра
+    for x in range(palette_width):
+        for y in range(palette_height):
+            r = x
+            g = y
+            b = 128
+            screen.set_at((palette_x + x, palette_y + y), (r, g, b))
+
+    # Кнопка закрытия
+    palette_close_btn = pygame.Rect(palette_x + palette_width // 2 - 40, palette_y + palette_height + 10, 80, 30)
+    pygame.draw.rect(screen, (200, 50, 50), palette_close_btn, border_radius=3)
+    font_small = pygame.font.SysFont('Consolas', 18)
+    text = font_small.render("Close", True, (255, 255, 255))
+    screen.blit(text, (palette_close_btn.x + 15, palette_close_btn.y + 5))
+
+    return palette_close_btn
+
+
 def change_color(color):
     global draw_color
     draw_color = color
@@ -96,29 +148,11 @@ def undo_action():
         canvas.blit(canvas_states.pop(), (0, 0))
     else:
         canvas.fill((255, 255, 255))
-        if canvas_states: 
+        if canvas_states:
             canvas_states[0] = canvas.copy()
 
 
-button_width = 120
-button_height = 35
-panel_width = 300
-panel_padding = 10
-scroll_offset = 0
-
 objects.clear()
-
-color_buttons = [
-    ['Black', lambda: change_color([0, 0, 0])],
-    ['White', lambda: change_color([255, 255, 255])],
-    ['Red', lambda: change_color([255, 0, 0])],
-    ['Blue', lambda: change_color([0, 0, 255])],
-    ['Yellow', lambda: change_color([255, 255, 0])],
-    ['Orange', lambda: change_color([255, 165, 0])],
-    ['Green', lambda: change_color([0, 255, 0])],
-    ['Light Blue', lambda: change_color([173, 216, 230])],
-    ['Purple', lambda: change_color([105, 0, 198])],
-]
 
 title_colors = font.render("Colors", True, (230, 230, 230))
 title_tools = font.render("Brushes", True, (230, 230, 230))
@@ -126,23 +160,13 @@ title_file = font.render("File", True, (230, 230, 230))
 
 title_colors_y = panel_padding
 start_y_colors = title_colors_y + title_colors.get_height() + panel_padding
+Button(panel_padding, start_y_colors, button_width * 2 + panel_padding, button_height, "Choose Color", choose_color)
 
-for index, button_name in enumerate(color_buttons):
-    col = index % 2
-    row = index // 2
-
-    x = panel_padding + col * (button_width + panel_padding)
-    y = start_y_colors + row * (button_height + panel_padding)
-
-    Button(x, y, button_width, button_height,
-           button_name[0], button_name[1])
-
-last_color_row = (len(color_buttons) + 1) // 2
-separator_y = start_y_colors + last_color_row * (button_height + panel_padding) + panel_padding
+separator_y = start_y_colors + button_height + panel_padding
 
 tool_buttons = [
-    ['Brush Larger', lambda: change_brush_size('greater')],
-    ['Brush Smaller', lambda: change_brush_size('smaller')],
+    ['Brush +', lambda: change_brush_size('greater')],
+    ['Brush -', lambda: change_brush_size('smaller')],
 ]
 
 title_tools_y = separator_y + panel_padding
@@ -180,27 +204,11 @@ canvas = pygame.Surface(canvas_size)
 canvas.fill((255, 255, 255))
 canvas_states = []
 MAX_UNDO_STEPS = 50
-
 save_canvas_state()
 
 fullscreen = False
 
 while True:
-    screen.fill((30, 30, 30))
-    x, y = screen.get_size()
-
-    pygame.draw.rect(screen, (50, 50, 50), (0, 0, panel_width, y))
-
-    screen.blit(title_colors, (panel_padding, title_colors_y))
-    pygame.draw.line(screen, (200, 200, 200), (panel_padding, separator_y),
-                     (panel_width - panel_padding, separator_y), 2)
-
-    screen.blit(title_tools, (panel_padding, separator_y + 5))
-    pygame.draw.line(screen, (200, 200, 200), (panel_padding, separator2_y),
-                     (panel_width - panel_padding, separator2_y), 2)
-
-    screen.blit(title_file, (panel_padding, separator2_y + 5))
-
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -212,14 +220,47 @@ while True:
                     screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
                 else:
                     screen = pygame.display.set_mode((width, height))
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if show_palette:
+                mouse_pos = pygame.mouse.get_pos()
+
+                if (palette_x <= mouse_pos[0] <= palette_x + 256 and
+                        palette_y <= mouse_pos[1] <= palette_y + 256):
+                    # Получаем цвет из пикселя
+                    rel_x = mouse_pos[0] - palette_x
+                    rel_y = mouse_pos[1] - palette_y
+                    draw_color = [rel_x, rel_y, 128]  # Простая RGB-палитра
+
+                # Проверка клика по кнопке закрытия
+                if palette_close_btn and palette_close_btn.collidepoint(mouse_pos):
+                    show_palette = False
+
+    screen.fill((30, 30, 30))
+
+    x, y = screen.get_size()
+    screen.blit(canvas, [x / 2 - canvas_size[0] / 2, y / 2 - canvas_size[1] / 2])
+    pygame.draw.rect(screen, (50, 50, 50), (0, 0, panel_width, y))
+    screen.blit(title_colors, (panel_padding, title_colors_y))
+
+    pygame.draw.line(screen, (200, 200, 200), (panel_padding, separator_y),
+                     (panel_width - panel_padding, separator_y), 2)
+
+    screen.blit(title_tools, (panel_padding, separator_y + 5))
+    pygame.draw.line(screen, (200, 200, 200), (panel_padding, separator2_y),
+                     (panel_width - panel_padding, separator2_y), 2)
+
+    screen.blit(title_file, (panel_padding, separator2_y + 5))
 
     for obj in objects:
-        obj.button_rect.y = obj.y + scroll_offset
         obj.process()
 
-    screen.blit(canvas, [x / 2 - canvas_size[0] / 2, y / 2 - canvas_size[1] / 2])
+    if show_palette:
+        draw_color_palette()
 
-    if pygame.mouse.get_pressed()[0]:
+    if pygame.mouse.get_pressed()[0] and (not show_palette or
+                                          not (panel_width + 50 <= pygame.mouse.get_pos()[
+                                              0] <= panel_width + 50 + 256 and
+                                               50 <= pygame.mouse.get_pos()[1] <= 50 + 256)):
         mx, my = pygame.mouse.get_pos()
         dx = mx - x / 2 + canvas_size[0] / 2
         dy = my - y / 2 + canvas_size[1] / 2
