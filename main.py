@@ -1,6 +1,7 @@
 import sys
-import pygame
 import ctypes
+import os
+import pygame
 
 ctypes.windll.shcore.SetProcessDpiAwareness(True)
 
@@ -86,7 +87,7 @@ class Button:
 
 def choose_color():
     global show_palette
-    show_palette = not show_palette  # Переключаем видимость палитры
+    show_palette = not show_palette
 
 
 def draw_color_palette():
@@ -95,12 +96,10 @@ def draw_color_palette():
     if not show_palette:
         return None
 
-    # Рисуем фон палитры с тенью
     pygame.draw.rect(screen, (100, 100, 100), (palette_x - 5, palette_y - 5, palette_width + 10, palette_height + 50),
                      border_radius=5)
     pygame.draw.rect(screen, (40, 40, 40), (palette_x, palette_y, palette_width, palette_height + 40), border_radius=5)
 
-    # RGB-палитра
     for x in range(palette_width):
         for y in range(palette_height):
             r = x
@@ -108,7 +107,6 @@ def draw_color_palette():
             b = 128
             screen.set_at((palette_x + x, palette_y + y), (r, g, b))
 
-    # Кнопка закрытия
     palette_close_btn = pygame.Rect(palette_x + palette_width // 2 - 40, palette_y + palette_height + 10, 80, 30)
     pygame.draw.rect(screen, (200, 50, 50), palette_close_btn, border_radius=3)
     font_small = pygame.font.SysFont('Consolas', 18)
@@ -132,8 +130,44 @@ def change_brush_size(direction):
         brush_size -= brush_size_steps
 
 
+last_save_path = None
+
+
 def save():
-    pygame.image.save(canvas, "canvas.png")
+    global last_save_path
+
+    if last_save_path:
+        pygame.image.save(canvas, last_save_path)
+        show_save_message(f"Saved to {os.path.basename(last_save_path)}")
+    else:
+        save_as()
+
+
+def save_as():
+    global last_save_path
+
+    filename = ""
+    show_save_message("Enter filename in console")
+
+    if not filename:
+        print("Enter filename (with .png extension):")
+        filename = input().strip()
+
+    if not filename.endswith('.png'):
+        filename += '.png'
+
+    pygame.image.save(canvas, filename)
+    last_save_path = filename
+    show_save_message(f"Saved as {filename}")
+    print(f"Saved as {filename}")
+
+
+def show_save_message(text):
+    font = pygame.font.SysFont("Arial", 18)
+    message = font.render(text, True, (0, 200, 0))
+    screen.blit(message, (panel_width + 20, 20))
+    pygame.display.flip()
+    pygame.time.delay(1500)
 
 
 def save_canvas_state():
@@ -186,6 +220,7 @@ separator2_y = start_y_tools + last_tool_row * (button_height + panel_padding) +
 
 file_buttons = [
     ['Save', save],
+    ['Save As...', save_as],
     ['Undo', undo_action],
 ]
 
@@ -226,12 +261,10 @@ while True:
 
                 if (palette_x <= mouse_pos[0] <= palette_x + 256 and
                         palette_y <= mouse_pos[1] <= palette_y + 256):
-                    # Получаем цвет из пикселя
                     rel_x = mouse_pos[0] - palette_x
                     rel_y = mouse_pos[1] - palette_y
-                    draw_color = [rel_x, rel_y, 128]  # Простая RGB-палитра
+                    draw_color = [rel_x, rel_y, 128]
 
-                # Проверка клика по кнопке закрытия
                 if palette_close_btn and palette_close_btn.collidepoint(mouse_pos):
                     show_palette = False
 
@@ -264,8 +297,6 @@ while True:
         mx, my = pygame.mouse.get_pos()
         dx = mx - x / 2 + canvas_size[0] / 2
         dy = my - y / 2 + canvas_size[1] / 2
-
-        pygame.draw.circle(canvas, draw_color, [dx, dy], brush_size)
 
         if 0 <= dx < canvas_size[0] and 0 <= dy < canvas_size[1]:
             if not canvas_states or canvas_states[-1].get_at((int(dx), int(dy))) != canvas.get_at((int(dx), int(dy))):
