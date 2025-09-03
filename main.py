@@ -146,20 +146,83 @@ def save():
 def save_as():
     global last_save_path
 
-    filename = ""
-    show_save_message("Enter filename in console")
+    input_active = True
+    input_text = ""
+    cursor_visible = True
+    cursor_timer = 0
 
-    if not filename:
-        print("Enter filename (with .png extension):")
-        filename = input().strip()
+    dialog_width, dialog_height = 400, 150
+    dialog_x = (width - dialog_width) // 2
+    dialog_y = (height - dialog_height) // 2
 
-    if not filename.endswith('.png'):
-        filename += '.png'
+    input_rect = pygame.Rect(dialog_x + 20, dialog_y + 70, dialog_width - 40, 40)
 
-    pygame.image.save(canvas, filename)
-    last_save_path = filename
-    show_save_message(f"Saved as {filename}")
-    print(f"Saved as {filename}")
+    while input_active:
+        cursor_timer += 1
+        if cursor_timer > 30:
+            cursor_visible = not cursor_visible
+            cursor_timer = 0
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    input_active = False
+                elif event.key == pygame.K_ESCAPE:
+                    return
+                elif event.key == pygame.K_BACKSPACE:
+                    input_text = input_text[:-1]
+                else:
+                    if event.unicode.isprintable() and event.unicode not in ['/', '\\', ':', '*', '?', '"', '<', '>',
+                                                                             '|']:
+                        input_text += event.unicode
+
+        screen.fill((30, 30, 30))
+
+        x, y = screen.get_size()
+        screen.blit(canvas, [x / 2 - canvas_size[0] / 2, y / 2 - canvas_size[1] / 2])
+        pygame.draw.rect(screen, (50, 50, 50), (0, 0, panel_width, y))
+
+        pygame.draw.rect(screen, (60, 60, 60), (dialog_x, dialog_y, dialog_width, dialog_height), border_radius=10)
+        pygame.draw.rect(screen, (100, 100, 100), (dialog_x, dialog_y, dialog_width, dialog_height), 2,
+                         border_radius=10)
+
+        title = font.render("Save As", True, (230, 230, 230))
+        screen.blit(title, (dialog_x + 20, dialog_y + 15))
+
+        prompt = font.render("Enter filename:", True, (200, 200, 200))
+        screen.blit(prompt, (dialog_x + 20, dialog_y + 45))
+
+        pygame.draw.rect(screen, (40, 40, 40), input_rect)
+        pygame.draw.rect(screen, (150, 150, 150), input_rect, 2)
+
+        if input_text:
+            text_surface = font.render(input_text, True, (255, 255, 255))
+            screen.blit(text_surface, (input_rect.x + 5, input_rect.y + 8))
+
+        if cursor_visible:
+            cursor_x = input_rect.x + 5 + font.size(input_text)[0]
+            pygame.draw.line(screen, (255, 255, 255),
+                             (cursor_x, input_rect.y + 5),
+                             (cursor_x, input_rect.y + input_rect.height - 5), 2)
+
+        instruction = font.render("Press Enter to save, Esc to cancel", True, (150, 150, 150))
+        screen.blit(instruction, (dialog_x + 20, dialog_y + 115))
+
+        pygame.display.flip()
+        fps_clock.tick(fps)
+
+    if input_text:
+        filename = input_text
+        if not filename.endswith('.png'):
+            filename += '.png'
+
+        pygame.image.save(canvas, filename)
+        last_save_path = filename
+        show_save_message(f"Saved as {filename}")
 
 
 def show_save_message(text):
